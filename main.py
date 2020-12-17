@@ -19,6 +19,8 @@ art_json = {}
 
 @art.post("/api/v1/user", status_code=status.HTTP_201_CREATED)
 async def register_user(user_info: User):
+    """Create new user and return an auth token. If the user already exists, this will also generate a
+    new auth token for the user and invalidate the old one."""
     user_info.generateToken()
     user_info.encryptPassword()
 
@@ -37,6 +39,8 @@ async def register_user(user_info: User):
 
 @art.put("/api/v1/user", status_code=status.HTTP_200_OK)
 async def update_user(user_auth: UserAuth, new_user_info: User):
+    """Change username or password using an auth token. Username and password are both
+    needed in the `new_user_info`, even if only one is changing."""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -51,6 +55,7 @@ async def update_user(user_auth: UserAuth, new_user_info: User):
 
 @art.delete("/api/v1/user", status_code=status.HTTP_200_OK)
 async def remove_user(user_auth: UserAuth):
+    """Delete user and all of their art collections."""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -64,8 +69,9 @@ async def remove_user(user_auth: UserAuth):
 
     save_the_art()
 
-@art.get("/api/v1/user/{username}/{token}", status_code=status.HTTP_200_OK)
+@art.get("/api/v1/user/{username}", status_code=status.HTTP_200_OK)
 async def get_user(username: str, token: str):
+    """Get user info with authentication."""
     if username not in art_json["users"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user does not exist")
     if art_json["users"][username]["token"] != token:
@@ -81,6 +87,7 @@ async def get_user(username: str, token: str):
 
 @art.post("/api/v1/assemblage", status_code=status.HTTP_201_CREATED)
 async def create_assemblage(user_auth: UserAuth, a_name: str):
+    """Create new art assemblage under the authenticating user with the name `a_name`."""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -97,6 +104,7 @@ async def create_assemblage(user_auth: UserAuth, a_name: str):
 
 @art.delete("/api/v1/assemblage", status_code=status.HTTP_200_OK)
 async def delete_assemblage(user_auth: UserAuth, aid: str):
+    """Delete assemblage with `id = aid` if the authenticating user owns it."""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -111,6 +119,7 @@ async def delete_assemblage(user_auth: UserAuth, aid: str):
 
 @art.put("/api/v1/assemblage/{aid}", status_code=status.HTTP_200_OK)
 async def update_assemblage(aid:str, user_auth: UserAuth, a_name: str):
+    """Change the name of the assemblage."""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -124,6 +133,7 @@ async def update_assemblage(aid:str, user_auth: UserAuth, a_name: str):
 
 @art.post("/api/v1/assemblage/{aid}", status_code=status.HTTP_201_CREATED)
 async def add_art(aid: str, user_auth: UserAuth, art_list: List[Art]):
+    """Add works of art to assemblage by reference hosted location."""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -137,6 +147,7 @@ async def add_art(aid: str, user_auth: UserAuth, art_list: List[Art]):
 
 @art.delete("/api/v1/assemblage/{aid}", status_code=status.HTTP_200_OK)
 async def remove_art(aid: str, user_auth: UserAuth, art_list: List[str]):
+    """Delete works of art by name or hosted location"""
     s, d = user_auth.authorize(art_json)
     if s != status.HTTP_200_OK:
         raise HTTPException(status_code=s, detail=d)
@@ -148,11 +159,11 @@ async def remove_art(aid: str, user_auth: UserAuth, art_list: List[str]):
     for art_id in art_list:
         for i in range(len(art_json["arts"][aid]["art"])):
             art: Art = art_json["arts"][aid]["art"][i]
-            if art_id == art.name or art_id == art.src:
+            if art_id == art["name"] or art_id == art["src"]:
                 to_remove.append(i)
                 break
     
-    to_remove = to_remove.sort(reversed=True)
+    to_remove.sort(reverse=True)
     for r in to_remove:
         del art_json["arts"][aid]["art"][r]
 
@@ -164,6 +175,7 @@ async def remove_art(aid: str, user_auth: UserAuth, art_list: List[str]):
 
 @art.get("/api/v1/assemblage", status_code=status.HTTP_200_OK)
 async def get_assemblage(_id: str = "", name: str = None):
+    """Get full assemblage of art works by name or id."""
     ret = []
 
     for id, assemblage in art_json["arts"].items():
@@ -174,6 +186,7 @@ async def get_assemblage(_id: str = "", name: str = None):
 
 @art.get("/api/v1/art", status_code=status.HTTP_200_OK)
 async def get_art(name: str = None, src: str = None, tags: List[str] = []):
+    """Find individual works of art by name, hosting source or descriptive tag."""
     ret = []
 
     for assemblage in art_json["arts"].values():
@@ -213,6 +226,8 @@ if not os.path.exists("databases/art_assemblage.json"):
     os.system("touch databases/art_assemblage.json")
 
 # Load data file from storage into memory for faster access
+# For the small scale use this project will see, a JSON file is much faster and optimal.
+# However, for scaling I would convert this to an SQL database
 with open("databases/art_assemblage.json", 'r') as f:
     try:
         art_json = json.loads(f.read().strip())
