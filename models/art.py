@@ -10,5 +10,5 @@ class Assemblage(BaseModel):
 
 class Art(BaseModel):
     name: Optional[str] = None
-    url: Optional[str]
+    src: Optional[str]
     tags: Optional[List[str]] = []

@@ -148,7 +148,7 @@ async def remove_art(aid: str, user_auth: UserAuth, art_list: List[str]):
     for art_id in art_list:
         for i in range(len(art_json["arts"][aid]["art"])):
             art: Art = art_json["arts"][aid]["art"][i]
-            if art_id == art.name or art_id == art.url:
+            if art_id == art.name or art_id == art.src:
                 to_remove.append(i)
                 break
     
@@ -162,28 +162,28 @@ async def remove_art(aid: str, user_auth: UserAuth, art_list: List[str]):
 ### Public access
 # No need for an account to view art; art is for everyone
 
-@art.put("/api/v1/assemblage", status_code=status.HTTP_200_OK)
-async def get_assemblage(assemblage_key: Assemblage):
+@art.get("/api/v1/assemblage", status_code=status.HTTP_200_OK)
+async def get_assemblage(_id: str = "", name: str = None):
     ret = []
 
-    for _id, assemblage in art_json["arts"].items():
-        if assemblage_key.id == _id or assemblage_key.name != None and assemblage_key.name in assemblage["name"]:
+    for id, assemblage in art_json["arts"].items():
+        if _id == id or name != None and name in assemblage["name"]:
             ret.append(assemblage)
 
     return ret
 
-@art.post("/api/v1/art", status_code=status.HTTP_200_OK)
-async def get_art(art_key: Art):
+@art.get("/api/v1/art", status_code=status.HTTP_200_OK)
+async def get_art(name: str = None, src: str = None, tags: List[str] = []):
     ret = []
 
     for assemblage in art_json["arts"].values():
         for art in assemblage["art"]:
-            # Find matching art name or url
-            if art_key.name != None and art_key.name in art["name"] or art["url"] == art_key.url:
+            # Find matching art name or src
+            if name != None and name in art["name"] or art["src"] == src:
                 ret.append(art)
             else:
                 # Find matching tags
-                for tag in art_key.tags:
+                for tag in tags:
                     if tag in art["tags"]:
                         ret.append(art)
 
